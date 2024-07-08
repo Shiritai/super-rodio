@@ -1,5 +1,7 @@
 # Super Rodio
 
+An out-of-the-box rust audio-player library that utilize rodio in thread-safe manners.
+
 ## Test
 
 For testing, one can create `/audio` directory and add the following audio files in name:
