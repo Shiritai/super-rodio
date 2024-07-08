@@ -13,7 +13,7 @@ use rodio::{Decoder, OutputStream, Sink, Source};
 /// be made without argument
 pub trait Make<T> {
     /// Make a new structure
-    /// 
+    ///
     /// Just like the well-known `new` method
     /// with different name to avoid name collision
     /// after rust reference coercion
@@ -22,8 +22,14 @@ pub trait Make<T> {
 
 #[derive(Clone, Default, Debug)]
 pub struct Song {
-    name: String,
-    path: String,
+    pub name: String,
+    pub path: String,
+}
+
+impl Song {
+    pub fn from(name: String, path: String) -> Self {
+        Song { name, path }
+    }
 }
 
 #[derive(Clone, Copy, PartialEq, Default, Debug)]
@@ -117,7 +123,10 @@ impl Player for SharedPlayer {
                         // acquire write lock to place a new sink
                         let mut state = state.write().unwrap();
                         state.sink = Some(Sink::try_new(&stream_handle).unwrap());
-                        state.current = ActiveSong::from(song.clone(), source.total_duration().unwrap_or_default());
+                        state.current = ActiveSong::from(
+                            song.clone(),
+                            source.total_duration().unwrap_or_default(),
+                        );
                         state.current.state = PlaybackState::PLAY;
                     }
                     {
@@ -184,10 +193,7 @@ mod tests {
     #[test]
     fn test_play_stop() {
         let player = SharedPlayer::make();
-        player.add(Song {
-            name: "Music".into(),
-            path: "audio/music".into(),
-        });
+        player.add(Song::from("Music".into(), "audio/music".into()));
 
         let t = player.play();
         sleep(Duration::from_secs(5));
@@ -198,10 +204,7 @@ mod tests {
     #[test]
     fn test_play_resume_stop() {
         let player = SharedPlayer::make();
-        player.add(Song {
-            name: "Music".into(),
-            path: "audio/music".into(),
-        });
+        player.add(Song::from("Music".into(), "audio/music".into()));
 
         let t = player.play();
         sleep(Duration::from_secs(5));
@@ -216,20 +219,11 @@ mod tests {
     #[test]
     fn test_play_songs() {
         let player = SharedPlayer::make();
-        player.add(Song {
-            name: "Music".into(),
-            path: "audio/music".into(),
-        });
-        
-        player.add(Song {
-            name: "ShortSound".into(),
-            path: "audio/short_sound".into(),
-        });
-        
-        player.add(Song {
-            name: "Music".into(),
-            path: "audio/music".into(),
-        });
+        player.add(Song::from("Music".into(), "audio/music".into()));
+
+        player.add(Song::from("ShortSound".into(), "audio/short_sound".into()));
+
+        player.add(Song::from("Music".into(), "audio/music".into()));
 
         // first song
         let _ = player.play();
