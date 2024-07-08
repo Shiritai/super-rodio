@@ -4,6 +4,7 @@ version = "0.0.1"
 edition = "2021"
 authors = ["Tzu-Ching Yang"]
 license = "MIT"
+description = "An out-of-the-box rust audio-player library that utilize rodio in thread-safe manners."
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
