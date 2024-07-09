@@ -110,6 +110,7 @@ pub trait Player {
     fn use_auto_play(&self);
     fn toggle(&self);
     fn stop(&self);
+    fn clear(&self);
     fn is_playing(&self) -> bool;
 }
 
@@ -148,21 +149,25 @@ impl Player for SharedPlayer {
         let state = Arc::clone(&self);
         // create a new thread for loading and playing music
         spawn(move || {
+            // The life cycle of "_stream" should >= source
+            // so we should make a new sink each time before playing some source
+            let (_stream, stream_handle) = OutputStream::try_default().unwrap();
+            {
+                // acquire write lock to place a new sink
+                let mut state = state.write().unwrap();
+                state.sink = Some(Sink::try_new(&stream_handle).unwrap());
+            }
             loop {
                 let song = { state.write().unwrap().waiting_q.pop() };
                 if song.is_none() {
                     break;
                 }
                 let song = song.unwrap();
-                // The life cycle of "_stream" should >= source
-                // so we should make a new sink each time before playing some source
-                let (_stream, stream_handle) = OutputStream::try_default().unwrap();
                 let file = BufReader::new(File::open(song.path.clone()).unwrap());
                 let source = Decoder::new(file).unwrap();
                 {
-                    // acquire write lock to place a new sink
+                    // acquire write lock to prepare playing song
                     let mut state = state.write().unwrap();
-                    state.sink = Some(Sink::try_new(&stream_handle).unwrap());
                     state.current =
                         ActiveSong::from(song.clone(), source.total_duration().unwrap_or_default());
                     state.current.state = PlaybackState::PLAY;
@@ -218,6 +223,15 @@ impl Player for SharedPlayer {
         if let Some(sink) = &state.read().unwrap().sink {
             sink.stop();
         };
+
+        self.clear(); // clear the whole list
+    }
+
+    /// Clear the playlist
+    fn clear(&self) {
+        // acquire an arc for this thread
+        let state = Arc::clone(&self);
+        state.write().unwrap().waiting_q.clear();
     }
 
     fn is_playing(&self) -> bool {
@@ -333,5 +347,19 @@ mod tests {
         let _ = player.play().join();
         sleep(Duration::from_secs_f32(0.5)); // wait a while...
         let _ = player.play().join();
+    }
+
+    #[test]
+    fn test_stop() {
+        let player = SharedPlayer::make();
+        for _ in 0..100 {
+            player.add(Song::from("Music".into(), "audio/short_sound".into()));
+        }
+        player.use_auto_play();
+
+        let t = player.play();
+        sleep(Duration::from_secs(3));
+        player.stop();
+        let _ = t.join(); // should stop immediately
     }
 }
