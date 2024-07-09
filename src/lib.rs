@@ -61,12 +61,22 @@ impl ActiveSong {
     }
 }
 
+#[derive(Clone, Copy, PartialEq, Default, Debug)]
+pub enum PlaybackMode {
+    #[default]
+    NORMAL,
+
+    /// Auto play the audio in waiting queue
+    AUTO,
+}
+
 pub struct PlayerState {
     sink: Option<Sink>,
     waiting_q: LimitedQueue<Song>, // waiting queue
     current: ActiveSong,
     played_q: LimitedQueue<Song>, // played queue
     volume: f32,
+    mode: PlaybackMode,
 }
 
 impl Make<Self> for PlayerState {
@@ -77,6 +87,7 @@ impl Make<Self> for PlayerState {
             current: Default::default(),
             played_q: LimitedQueue::with_capacity(1000),
             volume: 0.5f32,
+            mode: Default::default(),
         }
     }
 }
@@ -92,6 +103,8 @@ impl Make<Self> for SharedPlayer {
 pub trait Player {
     fn add(&self, song: Song);
     fn play(&self) -> JoinHandle<()>;
+    fn use_normal_play(&self);
+    fn use_auto_play(&self);
     fn toggle(&self);
     fn stop(&self);
     fn is_playing(&self) -> bool;
@@ -108,48 +121,54 @@ impl Player for SharedPlayer {
         };
         // acquire an arc for child thread
         let state = Arc::clone(&self);
-        let song = { self.write().unwrap().waiting_q.pop() };
-        match song {
-            None => spawn(|| {}),
-            Some(song) => {
-                // create a new thread for loading and playing music
-                spawn(move || {
-                    // The life cycle of "_stream" should >= source
-                    // so we should make a new sink each time before playing some source
-                    let (_stream, stream_handle) = OutputStream::try_default().unwrap();
-                    let file = BufReader::new(File::open(song.path.clone()).unwrap());
-                    let source = Decoder::new(file).unwrap();
-                    {
-                        // acquire write lock to place a new sink
-                        let mut state = state.write().unwrap();
-                        state.sink = Some(Sink::try_new(&stream_handle).unwrap());
-                        state.current = ActiveSong::from(
-                            song.clone(),
-                            source.total_duration().unwrap_or_default(),
-                        );
-                        state.current.state = PlaybackState::PLAY;
+        // create a new thread for loading and playing music
+        spawn(move || {
+            loop {
+                let song = { state.write().unwrap().waiting_q.pop() };
+                if song.is_none() {
+                    break;
+                }
+                let song = song.unwrap();
+                // The life cycle of "_stream" should >= source
+                // so we should make a new sink each time before playing some source
+                let (_stream, stream_handle) = OutputStream::try_default().unwrap();
+                let file = BufReader::new(File::open(song.path.clone()).unwrap());
+                let source = Decoder::new(file).unwrap();
+                {
+                    // acquire write lock to place a new sink
+                    let mut state = state.write().unwrap();
+                    state.sink = Some(Sink::try_new(&stream_handle).unwrap());
+                    state.current =
+                        ActiveSong::from(song.clone(), source.total_duration().unwrap_or_default());
+                    state.current.state = PlaybackState::PLAY;
+                }
+                {
+                    // acquire read lock to play music
+                    let state = state.read().unwrap();
+                    // acquiring a read lock to play the music
+                    if let Some(sink) = state.sink.as_ref() {
+                        // assign current song
+                        sink.append(source);
+                        sink.set_volume(state.volume);
+                        sink.sleep_until_end();
+                    };
+                }
+                {
+                    // acquire write lock to finish end-of-play process
+                    let mut state = state.write().unwrap();
+                    state.current.progress = state.current.duration;
+                    state.current.state = PlaybackState::STOP;
+                    state.played_q.push(song.clone());
+                }
+                {
+                    // auto play if flag is on, otherwise breaks
+                    let to_auto_play = { state.read().unwrap().mode == PlaybackMode::AUTO };
+                    if !to_auto_play {
+                        break;
                     }
-                    {
-                        // acquire read lock to play music
-                        let state = state.read().unwrap();
-                        // acquiring a read lock to play the music
-                        if let Some(sink) = state.sink.as_ref() {
-                            // assign current song
-                            sink.append(source);
-                            sink.set_volume(state.volume);
-                            sink.sleep_until_end();
-                        };
-                    }
-                    {
-                        // acquire write lock to finish end-of-play process
-                        let mut state = state.write().unwrap();
-                        state.current.progress = state.current.duration;
-                        state.current.state = PlaybackState::STOP;
-                        state.played_q.push(song);
-                    }
-                })
+                }
             }
-        }
+        })
     }
 
     fn toggle(&self) {
@@ -181,6 +200,16 @@ impl Player for SharedPlayer {
         let state = Arc::clone(&self);
         let res = state.read().unwrap().current.state == PlaybackState::PLAY;
         res
+    }
+
+    fn use_normal_play(&self) {
+        let state = Arc::clone(&self);
+        state.write().unwrap().mode = PlaybackMode::NORMAL;
+    }
+
+    fn use_auto_play(&self) {
+        let state = Arc::clone(&self);
+        state.write().unwrap().mode = PlaybackMode::AUTO;
     }
 }
 
