@@ -270,4 +270,39 @@ mod tests {
         sleep(Duration::from_secs(5));
         player.stop();
     }
+
+    #[test]
+    fn test_auto_play() {
+        let player = SharedPlayer::make();
+        player.add(Song::from("Music".into(), "audio/short_sound".into()));
+        player.add(Song::from("Music".into(), "audio/short_sound".into()));
+        player.add(Song::from("Music".into(), "audio/short_sound".into()));
+
+        player.use_auto_play();
+        let _ = player.play().join();
+    }
+
+    #[test]
+    fn test_normal_auto_play() {
+        let player = SharedPlayer::make();
+        player.add(Song::from("Music".into(), "audio/short_sound".into()));
+        player.add(Song::from("Music".into(), "audio/short_sound".into()));
+        player.add(Song::from("Music".into(), "audio/short_sound".into()));
+
+        player.use_auto_play();
+        let _ = player.play().join();
+
+        sleep(Duration::from_secs(2));// wait a while...
+        
+        player.add(Song::from("Music".into(), "audio/short_sound".into()));
+        player.add(Song::from("Music".into(), "audio/short_sound".into()));
+        player.add(Song::from("Music".into(), "audio/short_sound".into()));
+        
+        player.use_normal_play();
+        let _ = player.play().join();
+        sleep(Duration::from_secs_f32(0.5)); // wait a while...
+        let _ = player.play().join();
+        sleep(Duration::from_secs_f32(0.5)); // wait a while...
+        let _ = player.play().join();
+    }
 }
