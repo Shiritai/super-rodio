@@ -102,6 +102,9 @@ impl Make<Self> for SharedPlayer {
 
 pub trait Player {
     fn add(&self, song: Song);
+    fn waiting_list(&self) -> Vec<Song>;
+    fn played_list(&self) -> Vec<Song>;
+    fn current_song(&self) -> ActiveSong;
     fn play(&self) -> JoinHandle<()>;
     fn use_normal_play(&self);
     fn use_auto_play(&self);
@@ -113,6 +116,28 @@ pub trait Player {
 impl Player for SharedPlayer {
     fn add(&self, song: Song) {
         self.write().unwrap().waiting_q.push(song);
+    }
+
+    fn waiting_list(&self) -> Vec<Song> {
+        self.read()
+            .unwrap()
+            .waiting_q
+            .iter()
+            .map(Clone::clone)
+            .collect()
+    }
+
+    fn played_list(&self) -> Vec<Song> {
+        self.read()
+            .unwrap()
+            .played_q
+            .iter()
+            .map(Clone::clone)
+            .collect()
+    }
+
+    fn current_song(&self) -> ActiveSong {
+        self.read().unwrap().current.clone()
     }
 
     fn play(&self) -> JoinHandle<()> {
@@ -257,16 +282,20 @@ mod tests {
         // first song
         let _ = player.play();
         sleep(Duration::from_secs(5));
-        
+        println!("{:?}", player.current_song());
+
         sleep(Duration::from_secs(5));
         player.stop();
+        println!("{:?}", player.current_song());
 
         // second song (short)
         let t = player.play();
+        println!("{:?}", player.current_song());
         let _ = t.join();
         // third song
         let _ = player.play();
         sleep(Duration::from_secs(5));
+        println!("{:?}", player.current_song());
         sleep(Duration::from_secs(5));
         player.stop();
     }
