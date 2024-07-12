@@ -44,7 +44,7 @@ pub enum PlaybackState {
 
 #[derive(Clone, Default, Debug)]
 pub struct ActiveSong {
-    song: Song,
+    song: Option<Song>,
     state: PlaybackState,
     progress: Duration,
     duration: Duration,
@@ -53,7 +53,7 @@ pub struct ActiveSong {
 impl ActiveSong {
     pub fn from(song: Song, duration: Duration) -> ActiveSong {
         ActiveSong {
-            song,
+            song: Some(song),
             state: PlaybackState::NONE,
             progress: Duration::from_secs(0),
             duration,
@@ -188,6 +188,7 @@ impl Player for SharedPlayer {
                     let mut state = state.write().unwrap();
                     state.current.progress = state.current.duration;
                     state.current.state = PlaybackState::STOP;
+                    state.current.song = None;
                     state.played_q.push(song.clone());
                 }
                 {
@@ -231,7 +232,9 @@ impl Player for SharedPlayer {
     fn clear(&self) {
         // acquire an arc for this thread
         let state = Arc::clone(&self);
-        state.write().unwrap().waiting_q.clear();
+        let mut state = state.write().unwrap();
+        state.waiting_q.clear();
+        state.played_q.clear();
     }
 
     fn is_playing(&self) -> bool {
@@ -352,14 +355,24 @@ mod tests {
     #[test]
     fn test_stop() {
         let player = SharedPlayer::make();
-        for _ in 0..100 {
+        for _ in 0..10 {
             player.add(Song::from("Music".into(), "audio/short_sound".into()));
         }
         player.use_auto_play();
-
+        
         let t = player.play();
         sleep(Duration::from_secs(3));
         player.stop();
+        let _ = t.join(); // should stop immediately
+
+        
+        sleep(Duration::from_secs(1));
+        for _ in 0..10 {
+            player.add(Song::from("Music".into(), "audio/short_sound".into()));
+        }
+
+        let t = player.play();
+        sleep(Duration::from_secs(3));
         let _ = t.join(); // should stop immediately
     }
 }

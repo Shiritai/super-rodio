@@ -353,9 +353,9 @@ dependencies = [
 
 [[package]]
 name = "limited-queue"
-version = "0.1.0"
+version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "70b2ab105808636ed7fb445636d498716399d1ac83bf5558fd84a42b0fcd35bd"
+checksum = "6eb35b2578b96f3ee6c0c1d7f4728950323853a52a13cc15e425839558257ff4"
 
 [[package]]
 name = "log"
