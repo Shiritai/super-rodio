@@ -17,7 +17,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - name: install linux deps
-        run: |
+      run: |
           sudo apt update
           sudo apt install -y --no-install-recommends libasound2-dev pkg-config
     - name: Build
