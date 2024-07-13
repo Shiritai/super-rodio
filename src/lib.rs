@@ -259,6 +259,8 @@ impl Player for SharedPlayer {
 mod tests {
     use std::{thread::sleep, time::Duration};
 
+    use rodio::{cpal::{self, traits::HostTrait}, DeviceTrait, OutputStream};
+
     use crate::{Make, Player, SharedPlayer, Song};
 
     #[test]
@@ -374,5 +376,24 @@ mod tests {
         let t = player.play();
         sleep(Duration::from_secs(3));
         let _ = t.join(); // should stop immediately
+    }
+
+    #[test]
+    fn test_choose_output_device() {
+        // let (_s, h) = OutputStream::try_default().unwrap();
+        for host_id in cpal::available_hosts() {
+            println!("In host: {:?}", host_id);
+            let host = cpal::host_from_id(host_id).unwrap();
+            println!("\tInput devices:");
+            for in_d in host.input_devices().unwrap() {
+                let in_d = in_d.name().unwrap();
+                println!("\t\t{}", in_d);
+            }
+            println!("\tOutput devices:");
+            for out_d in host.output_devices().unwrap() {
+                let out_d = out_d.name().unwrap();
+                println!("\t\t{}", out_d);
+            }
+        }
     }
 }
