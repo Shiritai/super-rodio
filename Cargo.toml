@@ -9,5 +9,5 @@ description = "An out-of-the-box rust audio-player library that utilize rodio in
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-limited-queue = "0.1.2"
+limited-queue = "0.1.5"
 rodio = "0.19.0"
