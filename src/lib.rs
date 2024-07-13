@@ -13,7 +13,10 @@ pub use song::Song;
 mod tests {
     use std::{thread::sleep, time::Duration};
 
-    use rodio::{cpal::{self, traits::HostTrait}, DeviceTrait, OutputStream};
+    use rodio::{
+        cpal::{self, traits::HostTrait},
+        DeviceTrait, OutputStream,
+    };
 
     use crate::{Make, Player, SharedPlayer, Song};
 
@@ -23,6 +26,7 @@ mod tests {
         player.add(Song::from("Music".into(), "audio/music".into()));
 
         let t = player.play();
+        println!("Song: {:?}", player.current_song());
         sleep(Duration::from_secs(5));
         player.stop();
         let _ = t.join();
@@ -133,7 +137,7 @@ mod tests {
 
     #[test]
     fn test_choose_output_device() {
-        // let (_s, h) = OutputStream::try_default().unwrap();
+        let player = SharedPlayer::make();
         for host_id in cpal::available_hosts() {
             println!("In host: {:?}", host_id);
             let host = cpal::host_from_id(host_id).unwrap();
@@ -144,6 +148,13 @@ mod tests {
             }
             println!("\tOutput devices:");
             for out_d in host.output_devices().unwrap() {
+                let out_d_copy = out_d.clone();
+                player.set_device_maker(Box::new(move || {
+                    OutputStream::try_from_device(&out_d_copy).unwrap()
+                }));
+                player.add(Song::from("Music".into(), "audio/short_sound".into()));
+                let _ = player.play().join();
+
                 let out_d = out_d.name().unwrap();
                 println!("\t\t{}", out_d);
             }

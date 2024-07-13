@@ -5,7 +5,7 @@ use std::{
     thread::{spawn, JoinHandle},
 };
 
-use rodio::{Decoder, OutputStream, Sink, Source};
+use rodio::{Decoder, Sink, Source};
 
 use crate::{
     asset::{PlaybackMode, PlayerAsset},
@@ -59,7 +59,7 @@ impl Player for SharedPlayer {
         spawn(move || {
             // The life cycle of "_stream" should >= source
             // so we should make a new sink each time before playing some source
-            let (_stream, stream_handle) = OutputStream::try_default().unwrap();
+            let (_stream, stream_handle) = { (state.read().unwrap().gen_out)() };
             {
                 // acquire write lock to place a new sink
                 let mut state = state.write().unwrap();
@@ -160,5 +160,27 @@ impl Player for SharedPlayer {
     fn use_auto_play(&self) {
         let state = Arc::clone(&self);
         state.write().unwrap().mode = PlaybackMode::AUTO;
+    }
+
+    /// Set output device generator, the default
+    /// generator is based on `OutputStream::try_default`.
+    ///
+    /// ```
+    /// use crate::super_rodio::{Make, SharedPlayer, Player};
+    /// use rodio::OutputStream;
+    ///
+    /// let player = SharedPlayer::make();
+    /// player.set_device_maker(Box::new(move || {
+    ///     OutputStream::try_default().unwrap()
+    /// }));
+    /// ```
+    fn set_device_maker(
+        &self,
+        with_generator: Box<
+            dyn Fn() -> (rodio::OutputStream, rodio::OutputStreamHandle) + Send + Sync,
+        >,
+    ) {
+        let state = Arc::clone(&self);
+        state.write().unwrap().gen_out = with_generator;
     }
 }

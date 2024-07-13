@@ -1,5 +1,7 @@
 use std::thread::JoinHandle;
 
+use rodio::{OutputStream, OutputStreamHandle};
+
 use crate::song::{ActiveSong, Song};
 
 pub trait Player {
@@ -14,4 +16,8 @@ pub trait Player {
     fn stop(&self);
     fn clear(&self);
     fn is_playing(&self) -> bool;
+    fn set_device_maker(
+        &self,
+        with_generator: Box<dyn Fn() -> (OutputStream, OutputStreamHandle) + Send + Sync>,
+    );
 }

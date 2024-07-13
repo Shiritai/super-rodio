@@ -1,5 +1,5 @@
 use limited_queue::LimitedQueue;
-use rodio::Sink;
+use rodio::{OutputStream, OutputStreamHandle, Sink};
 
 use crate::{
     make::Make,
@@ -22,6 +22,7 @@ pub struct PlayerAsset {
     pub played_q: LimitedQueue<Song>, // played queue
     pub volume: f32,
     pub mode: PlaybackMode,
+    pub gen_out: Box<dyn Fn() -> (OutputStream, OutputStreamHandle) + Send + Sync>,
 }
 
 impl Make<Self> for PlayerAsset {
@@ -33,6 +34,7 @@ impl Make<Self> for PlayerAsset {
             played_q: LimitedQueue::with_capacity(1000),
             volume: 0.5f32,
             mode: Default::default(),
+            gen_out: Box::new(|| OutputStream::try_default().unwrap()),
         }
     }
 }
