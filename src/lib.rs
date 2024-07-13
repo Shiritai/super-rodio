@@ -48,28 +48,28 @@ mod tests {
         let player = SharedPlayer::make();
         player.add(Song::from("Music".into(), "audio/music".into()));
 
-        player.add(Song::from("ShortSound".into(), "audio/short_sound".into()));
-
-        player.add(Song::from("Music".into(), "audio/music".into()));
-
         // first song
         let _ = player.play();
-        sleep(Duration::from_secs(5));
+        sleep(Duration::from_secs(2));
         println!("{:?}", player.current_song());
 
-        sleep(Duration::from_secs(5));
+        sleep(Duration::from_secs(2));
         player.stop();
         println!("{:?}", player.current_song());
+
+        player.add(Song::from("ShortSound".into(), "audio/short_sound".into()));
 
         // second song (short)
         let t = player.play();
         println!("{:?}", player.current_song());
         let _ = t.join();
+
+        player.add(Song::from("Music".into(), "audio/music".into()));
         // third song
         let _ = player.play();
-        sleep(Duration::from_secs(5));
+        sleep(Duration::from_secs(2));
         println!("{:?}", player.current_song());
-        sleep(Duration::from_secs(5));
+        sleep(Duration::from_secs(2));
         player.stop();
     }
 
@@ -94,12 +94,12 @@ mod tests {
         player.use_auto_play();
         let _ = player.play().join();
 
-        sleep(Duration::from_secs(2));// wait a while...
-        
+        sleep(Duration::from_secs(2)); // wait a while...
+
         player.add(Song::from("Music".into(), "audio/short_sound".into()));
         player.add(Song::from("Music".into(), "audio/short_sound".into()));
         player.add(Song::from("Music".into(), "audio/short_sound".into()));
-        
+
         player.use_normal_play();
         let _ = player.play().join();
         sleep(Duration::from_secs_f32(0.5)); // wait a while...
@@ -115,13 +115,12 @@ mod tests {
             player.add(Song::from("Music".into(), "audio/short_sound".into()));
         }
         player.use_auto_play();
-        
+
         let t = player.play();
         sleep(Duration::from_secs(3));
         player.stop();
         let _ = t.join(); // should stop immediately
 
-        
         sleep(Duration::from_secs(1));
         for _ in 0..10 {
             player.add(Song::from("Music".into(), "audio/short_sound".into()));
