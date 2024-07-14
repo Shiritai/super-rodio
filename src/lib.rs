@@ -160,4 +160,20 @@ mod tests {
             }
         }
     }
+
+    #[test]
+    fn test_add_play_pause_set_auto() {
+        let player = SharedPlayer::make();
+        for _ in 0..10 {
+            player.add(Song::from("Music".into(), "audio/music".into()));
+        }
+        player.play();
+        sleep(Duration::from_secs(1));
+        player.toggle();
+        sleep(Duration::from_secs(1));
+        player.use_auto_play();
+        sleep(Duration::from_secs(2));
+        player.stop();
+        // should not be dead if is dead, that is a bug
+    }
 }

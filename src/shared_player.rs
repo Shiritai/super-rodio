@@ -23,34 +23,50 @@ impl Make<Self> for SharedPlayer {
 }
 
 impl Player for SharedPlayer {
-    fn add(&self, song: Song) {
-        self.write().unwrap().waiting_q.push(song);
+    fn add(&self, song: Song) -> JoinHandle<()> {
+        // acquire an arc for this thread
+        let state = Arc::clone(&self);
+        spawn(move || {
+            state.write().unwrap().waiting_q.push(song);
+        })
     }
 
-    fn waiting_list(&self) -> Vec<Song> {
-        self.read()
-            .unwrap()
-            .waiting_q
-            .iter()
-            .map(Clone::clone)
-            .collect()
+    fn waiting_list(&self) -> JoinHandle<Vec<Song>> {
+        // acquire an arc for this thread
+        let state = Arc::clone(&self);
+        spawn(move || {
+            state
+                .read()
+                .unwrap()
+                .waiting_q
+                .iter()
+                .map(Clone::clone)
+                .collect()
+        })
     }
 
-    fn played_list(&self) -> Vec<Song> {
-        self.read()
-            .unwrap()
-            .played_q
-            .iter()
-            .map(Clone::clone)
-            .collect()
+    fn played_list(&self) -> JoinHandle<Vec<Song>> {
+        // acquire an arc for this thread
+        let state = Arc::clone(&self);
+        spawn(move || {
+            state
+                .read()
+                .unwrap()
+                .played_q
+                .iter()
+                .map(Clone::clone)
+                .collect()
+        })
     }
 
-    fn current_song(&self) -> ActiveSong {
-        self.read().unwrap().current.clone()
+    fn current_song(&self) -> JoinHandle<ActiveSong> {
+        // acquire an arc for this thread
+        let state = Arc::clone(&self);
+        spawn(move || state.read().unwrap().current.clone())
     }
 
     fn play(&self) -> JoinHandle<()> {
-        if self.is_playing() {
+        if self.is_playing().join().unwrap() {
             return spawn(|| {});
         };
         // acquire an arc for child thread
@@ -110,56 +126,66 @@ impl Player for SharedPlayer {
         })
     }
 
-    fn toggle(&self) {
+    fn toggle(&self) -> JoinHandle<()> {
         // acquire an arc for this thread
         let state = Arc::clone(&self);
-        // check if old sink exists and
-        // play/pause it by acquiring read lock
-        if let Some(sink) = &state.read().unwrap().sink {
-            if sink.is_paused() {
-                sink.play();
-            } else {
-                sink.pause();
-            }
-        };
+        spawn(move || {
+            // check if old sink exists and
+            // play/pause it by acquiring read lock
+            if let Some(sink) = &state.read().unwrap().sink {
+                if sink.is_paused() {
+                    sink.play();
+                } else {
+                    sink.pause();
+                }
+            };
+        })
     }
 
-    fn stop(&self) {
+    fn stop(&self) -> JoinHandle<()> {
         // acquire an arc for this thread
         let state = Arc::clone(&self);
-        // check if old sink exists and
-        // stop it by acquiring read lock
-        if let Some(sink) = &state.read().unwrap().sink {
-            sink.stop();
-        };
-
-        self.clear(); // clear the whole list
+        spawn(move || {
+            // check if old sink exists and
+            // stop it by acquiring read lock
+            if let Some(sink) = &state.read().unwrap().sink {
+                sink.stop();
+            };
+        })
     }
 
     /// Clear the playlist
-    fn clear(&self) {
+    fn clear(&self) -> JoinHandle<()> {
         // acquire an arc for this thread
         let state = Arc::clone(&self);
-        let mut state = state.write().unwrap();
-        state.waiting_q.clear();
-        state.played_q.clear();
+        spawn(move || {
+            let mut state = state.write().unwrap();
+            state.waiting_q.clear();
+            state.played_q.clear();
+        })
     }
 
-    fn is_playing(&self) -> bool {
-        // acquire an arc for this thread
+    fn is_playing(&self) -> JoinHandle<bool> {
         let state = Arc::clone(&self);
-        let res = state.read().unwrap().current.state == SongState::PLAY;
-        res
+        spawn(move || {
+            // acquire an arc for this thread
+            let res = state.read().unwrap().current.state == SongState::PLAY;
+            res
+        })
     }
 
-    fn use_normal_play(&self) {
+    fn use_normal_play(&self) -> JoinHandle<()> {
         let state = Arc::clone(&self);
-        state.write().unwrap().mode = PlaybackMode::NORMAL;
+        spawn(move || {
+            state.write().unwrap().mode = PlaybackMode::NORMAL;
+        })
     }
 
-    fn use_auto_play(&self) {
+    fn use_auto_play(&self) -> JoinHandle<()> {
         let state = Arc::clone(&self);
-        state.write().unwrap().mode = PlaybackMode::AUTO;
+        spawn(move || {
+            state.write().unwrap().mode = PlaybackMode::AUTO;
+        })
     }
 
     /// Set output device generator, the default
@@ -179,8 +205,10 @@ impl Player for SharedPlayer {
         with_generator: Box<
             dyn Fn() -> (rodio::OutputStream, rodio::OutputStreamHandle) + Send + Sync,
         >,
-    ) {
+    ) -> JoinHandle<()> {
         let state = Arc::clone(&self);
-        state.write().unwrap().gen_out = with_generator;
+        spawn(move || {
+            state.write().unwrap().gen_out = with_generator;
+        })
     }
 }
